@@ -15,7 +15,7 @@ namespace LuizStudios.FastMapper
     public static class FastMapper
     {
 
-        private static Dictionary<string, object> _mappers;
+
 
 
         public abstract class TestMapper
@@ -29,20 +29,19 @@ namespace LuizStudios.FastMapper
         private static string _fastMapperClassName = $"{FastMapperLibraryName}_Class";
 
 
-        /*private static Func<object, object>[] _conversionMethods;
-        private static string[] _conversionMethodIndexes;*/
+        private static object[] _instances;
+        private static string[] _instancesIndexes;
 
-        /*private static string _toLastExecuted;
-        private static int _conversionMethodIndexLastExecuted = -1;*/
+        private static string _objectInstancesLastExecuted;
+        private static int _objectInstancesIndexLastExecuted = -1;
 
         private const int ArrayDefaultCapacity = 4;
 
         static FastMapper()
         {
-            _mappers = new Dictionary<string, object>();
 
-            /*_conversionMethods = _conversionMethods ?? new Func<object, object>[ArrayDefaultCapacity];
-            _conversionMethodIndexes = _conversionMethodIndexes ?? new string[ArrayDefaultCapacity];*/
+            _instances = _instances ?? new object[ArrayDefaultCapacity];
+            _instancesIndexes = _instancesIndexes ?? new string[ArrayDefaultCapacity];
         }
 
         /// <summary>
@@ -94,52 +93,51 @@ namespace LuizStudios.FastMapper
             var asmGen = new AssemblyGenerator();
             asmGen.GenerateAssembly(newType.Assembly, @"C:\Users\luizf\Desktop\assembly2.dll");
 
-            _mappers.Add(destTypeName, Activator.CreateInstance(newType));
 
 
-            /*var conversionMethodIndex = 0;
+            var instanceIndex = 0;
 
-            var conversionMethodsLength = _conversionMethods.Length;
-            for (conversionMethodIndex = 0; conversionMethodIndex < conversionMethodsLength; conversionMethodIndex++)
+            var instanceLength = _instances.Length;
+            for (instanceIndex = 0; instanceIndex < instanceLength; instanceIndex++)
             {
-                ref var _conversionMethod = ref _conversionMethods[conversionMethodIndex];
+                ref var _conversionMethod = ref _instances[instanceIndex];
                 if (_conversionMethod == null)
                 {
-                    _conversionMethod = (Func<object, object>)Delegate.CreateDelegate(typeof(Func<object, object>), ilProvider.GetCreatedMethod());
+                    _conversionMethod = Activator.CreateInstance(newType);
 
                     break;
                 }
 
                 // Last element of the array
-                if ((conversionMethodIndex + 1) == conversionMethodsLength)
+                if ((instanceIndex + 1) == instanceLength)
                 {
                     //FastMapperExtensions.Array.IncreaseCapacity(ref _conversionMethods, conversionMethodsLength * 2);
 
                     // Restart for = -1 -> 0
-                    conversionMethodIndex = -1;
+                    instanceIndex = -1;
                 }
             }
 
-            var conversionMethodIndexesLength = _conversionMethodIndexes.Length;
-            for (var i = 0; i < conversionMethodIndexesLength; i++)
+            var instanceIndexesLength = _instancesIndexes.Length;
+            for (var i = 0; i < instanceIndexesLength; i++)
             {
-                ref var toAndMethod = ref _conversionMethodIndexes[i];
+                ref var toAndMethod = ref _instancesIndexes[i];
                 if (toAndMethod == null)
                 {
-                    toAndMethod = $"{to}_{conversionMethodIndex}";
+                    toAndMethod = $"{destTypeName}_{instanceIndex}";
 
                     break;
                 }
 
                 // Last element of the array
-                if ((i + 1) == conversionMethodIndexesLength)
+                if ((i + 1) == instanceIndexesLength)
                 {
                     //FastMapperExtensions.Array.IncreaseCapacity(ref _conversionMethodIndexes, conversionMethodIndexesLength * 2);
 
                     // Restart for = -1 -> 0
                     i = -1;
                 }
-            }*/
+            }
         }
 
         /// <summary>
@@ -155,45 +153,48 @@ namespace LuizStudios.FastMapper
         public static TDestination MapTo<TDestination>(this object src) where TDestination : class
         {
 
-            var destTypeName = typeof(TDestination).Name;
+            /*var destTypeName = typeof(TDestination).Name;
 
             if (_mappers.TryGetValue(destTypeName, out object type))
             {
                 var mapper = (TestMapper)type;
                 return (TDestination)mapper.MakeMap(src);
             }
-
-            return default;
-            /*var srcTypeName = src.GetType().Name;
+*/
             var destTypeName = typeof(TDestination).Name;
 
-            var toAndMethod = $"{srcTypeName}To{destTypeName}_Method";
-
-            return (TDestination)_conversionMethods[0](src);*/
-
-
-            /*if (string.CompareOrdinal(toAndMethod, _toLastExecuted) == 0)
+            if (string.CompareOrdinal(destTypeName, _objectInstancesLastExecuted) == 0)
             {
-                return (TDestination)_conversionMethods[_conversionMethodIndexLastExecuted](src);
+                var mapper = (TestMapper)_instances[_objectInstancesIndexLastExecuted];
+
+                return (TDestination)mapper.MakeMap(src);
             }
 
-            foreach (var typeNameAndIndexMethod in _conversionMethodIndexes)
+            foreach (var item in _instancesIndexes)
             {
-                if (typeNameAndIndexMethod.Contains(toAndMethod))
+
+                if (item.Contains(destTypeName))
                 {
-                    foreach (var typeNameAndIndexMethodChar in typeNameAndIndexMethod)
+
+
+                    foreach (var typeNameAndIndexMethod in item)
                     {
-                        if (char.IsDigit(typeNameAndIndexMethodChar))
+                        if (char.IsDigit(typeNameAndIndexMethod))
                         {
-                            _conversionMethodIndexLastExecuted = typeNameAndIndexMethodChar - '0';
-                            _toLastExecuted = toAndMethod;
+                            _objectInstancesIndexLastExecuted = typeNameAndIndexMethod - '0';
+                            _objectInstancesLastExecuted = destTypeName;
 
-                            return (TDestination)_conversionMethods[_conversionMethodIndexLastExecuted](src);
+                            var mapper = (TestMapper)_instances[_objectInstancesIndexLastExecuted];
+
+                            return (TDestination)mapper.MakeMap(src);
                         }
-                    }
-               */
 
-            //throw new InvalidOperationException($"The mapping between object \"{srcTypeName}\" and \"{destTypeName}\" has not been defined. Use the \"FastMapper.Bind<{srcTypeName}, {destTypeName}>();\" method before using this method.");
+
+                    }
+                }
+            }
+
+            throw new InvalidOperationException();// $"The mapping between object \"{srcTypeName}\" and \"{destTypeName}\" has not been defined. Use the \"FastMapper.Bind<{srcTypeName}, {destTypeName}>();\" method before using this method.");
         }
     }
 }

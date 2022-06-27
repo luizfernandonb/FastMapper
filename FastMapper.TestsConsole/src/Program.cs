@@ -54,7 +54,7 @@ public class Benchmarks
     }
 
     [Benchmark]
-    public CarDTO FastMapperBenchmark()
+    public CarDTO FastMapperr()
     {
         return _car.MapTo<CarDTO>();
     }
