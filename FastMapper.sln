@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.2.32616.157
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FastMapper", "FastMapper.csproj", "{D5400D05-8832-4363-81E9-325093FE5819}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FastMapper.TestsConsole", "FastMapper.TestsConsole\FastMapper.TestsConsole.csproj", "{8F2F2D6B-DF9D-4740-A115-77CE8D7ABC86}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{D5400D05-8832-4363-81E9-325093FE5819}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5400D05-8832-4363-81E9-325093FE5819}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5400D05-8832-4363-81E9-325093FE5819}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5400D05-8832-4363-81E9-325093FE5819}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8F2F2D6B-DF9D-4740-A115-77CE8D7ABC86}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8F2F2D6B-DF9D-4740-A115-77CE8D7ABC86}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8F2F2D6B-DF9D-4740-A115-77CE8D7ABC86}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8F2F2D6B-DF9D-4740-A115-77CE8D7ABC86}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B0DDCC3F-B054-4BCE-A267-B337BE400C36}
+	EndGlobalSection
+EndGlobal
