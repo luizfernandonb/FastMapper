@@ -18,7 +18,7 @@ public static class Program
         BenchmarkRunner.Run<Benchmarks>(new DebugInProcessConfig());
 #endif
 
-        Console.ReadKey();
+        while (true) ;
     }
 }
 
