@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.0</TargetFramework>
+    <TargetFramework>netstandard1.3</TargetFramework>
     <RootNamespace>LuizStudios</RootNamespace>
     <GenerateDocumentationFile>False</GenerateDocumentationFile>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
@@ -34,8 +34,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Lokad.ILPack" Version="0.2.0" />
+    <PackageReference Include="Ensure.That" Version="10.1.0" />
+    <PackageReference Include="System.Reflection" Version="4.3.0" />
     <PackageReference Include="System.Reflection.Emit" Version="4.7.0" />
+    <PackageReference Include="System.Reflection.TypeExtensions" Version="4.7.0" />
   </ItemGroup>
 
   <ItemGroup>

@@ -9,6 +9,7 @@ namespace LuizStudios.FastMapper
     {
         private Type _typeCreated;
 
+        // Builders
         private TypeBuilder _typeBuilder;
         private readonly ModuleBuilder _moduleBuilder;
 
@@ -40,13 +41,12 @@ namespace LuizStudios.FastMapper
                                                       MethodAttributes.Family | MethodAttributes.Virtual | MethodAttributes.Public,
                                                       @return,
                                                       parameters);
-            //mapMethod.DefineParameter(1, ParameterAttributes.None, "from");
 
             ilCode(mapMethod.GetILGenerator());
         }
 
         // Creates the assembly and return the type created.
-        public Type GetCreatedType()
+        public Type CreateType()
         {
             if (_typeCreated == null)
             {
@@ -55,16 +55,16 @@ namespace LuizStudios.FastMapper
 
             return _typeCreated;
         }
+        /*
+                public MethodInfo GetCreatedMethod(string name)
+                {
+                    if (_methodInfo == null)
+                    {
+                        return _methodInfo = GetCreatedType().GetMethod(name);
+                    }
 
-        public MethodInfo GetCreatedMethod(string name)
-        {
-            if (_methodInfo == null)
-            {
-                return _methodInfo = GetCreatedType().GetMethod(name);
-            }
-
-            return _methodInfo;
-        }
+                    return _methodInfo;
+                }*/
 
         /*#if DEBUG
             ilProvider.SaveAssembly();

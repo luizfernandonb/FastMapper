@@ -4,77 +4,72 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
-using Lokad.ILPack;
+using EnsureThat;
+using LuizStudios.RuntimeClasses;
 
 namespace LuizStudios.FastMapper
 {
-
     /// <summary>
     /// Main class of <see cref="FastMapper"/>, it contains all public methods.
     /// </summary>
     public static class FastMapper
     {
+        private const string FastMapperLibraryName = nameof(FastMapper);
 
-
-
-
-        public abstract class TestMapper
-        {
-            public abstract object MakeMap(object source);
-        }
-
-        private const string FastMapperLibraryName = "FastMapper";
-
-        private static string _fastMapperAssemblyName = $"{FastMapperLibraryName}_Assembly";
-        private static string _fastMapperClassName = $"{FastMapperLibraryName}_Class";
-
+        /*private readonly static string _fastMapperRuntimeAssemblyName;
+        private readonly static string _fastMapperRuntimeClassName;*/
 
         private static object[] _instances;
         private static string[] _instancesIndexes;
 
-        private static string _objectInstancesLastExecuted;
-        private static int _objectInstancesIndexLastExecuted = -1;
-
-        private const int ArrayDefaultCapacity = 4;
+        private static string _instancesIndexesLastExecuted;
+        private static int _instancesIndexLastExecuted;
 
         static FastMapper()
         {
+            /*_instances = _instances ?? new object[];
+            _instancesIndexes = _instancesIndexes ?? new string[];*/
 
-            _instances = _instances ?? new object[ArrayDefaultCapacity];
-            _instancesIndexes = _instancesIndexes ?? new string[ArrayDefaultCapacity];
+            /*_fastMapperRuntimeAssemblyName = _fastMapperRuntimeAssemblyName ?? $"{FastMapperLibraryName}_Assembly";
+            _fastMapperRuntimeClassName = _fastMapperRuntimeClassName ?? $"{FastMapperLibraryName}_Class";*/
+
+            /*
+             * The default value is -1 because if a bug or something unexpected happens and the value of this variable remains at 0,
+             * maybe it will point to an index of the _instancesIndexes list that is not the right one
+             */
+            _instancesIndexLastExecuted = _instancesIndexLastExecuted == 0 ? -1 : _instancesIndexLastExecuted;
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <typeparam name="TSource"></typeparam>
-        /// <typeparam name="TDestination"></typeparam>
-        /// <exception cref="InvalidOperationException"></exception>
-        public static void Bind<TSource, TDestination>() where TSource : class where TDestination : class
+        public static void Bind<TSource, TTarget>() where TSource : class where TTarget : class
         {
-            var srcType = typeof(TSource);
-            var destType = typeof(TDestination);
+            Bind(typeof(TSource), typeof(TTarget));
+        }
 
-            var srcTypeName = srcType.Name;
-            var destTypeName = destType.Name;
+        public static void Bind(Type source, Type target)
+        {
+            Ensure.That(source).IsNotNull();
+            Ensure.That(target).IsNotNull();
 
-            var to = $"MakeMap";
+            var sourceTypeName = source.Name;
+            var targetTypeName = target.Name;
 
-            /*if (_conversionMethods.Any(_conversionMethod => _conversionMethod != null && string.Equals(_conversionMethod.Method.Name, to, StringComparison.Ordinal)))
+            if (_instancesIndexes.Any(_instanceIndex => _instanceIndex != null && _instanceIndex.Contains(targetTypeName)))
             {
-                throw new InvalidOperationException($"Only call the \"FastMapper.Bind<{srcTypeName}, {destTypeName}>();\" method once. " +
-                                                    $"(Maybe you wanted to do it the other way around? In this case: \"FastMapper.Bind<{destTypeName}, {srcTypeName}>();\")");
-            }*/
+                throw new InvalidOperationException($"Only call the \"FastMapper.Bind<{sourceTypeName}, {targetTypeName}>();\" method once. " +
+                                                    $"(Maybe you wanted to do it the other way around? In this case: \"FastMapper.Bind<{targetTypeName}, {sourceTypeName}>();\")");
+            }
 
-            var ilProvider = new ILProvider(FastMapperLibraryName, $"{FastMapperLibraryName}_Module");
-            ilProvider.CreateClass("TestMapperToTarget", typeof(TestMapper));
-            ilProvider.CreateMethod(to, typeof(object), new[] { typeof(object) }, mapMethodIlWriter =>
+            var runtimeTypeBaseClass = typeof(RuntimeBaseClass<>);
+
+            var ilProvider = new ILProvider($"{FastMapperLibraryName}_Assembly", $"{FastMapperLibraryName}_Module");
+            ilProvider.CreateClass($"{FastMapperLibraryName}_Class", runtimeTypeBaseClass.MakeGenericType(target));
+            ilProvider.CreateMethod(runtimeTypeBaseClass.GetMethods().Single().Name, target, new[] { typeof(object) }, mapMethodIlWriter =>
             {
-                mapMethodIlWriter.Emit(OpCodes.Newobj, destType.GetConstructor(Type.EmptyTypes));
+                mapMethodIlWriter.Emit(OpCodes.Newobj, target.GetConstructor(Type.EmptyTypes));
 
-                foreach (var destProperty in destType.GetProperties(BindingFlags.Instance | BindingFlags.Public))
+                foreach (var destProperty in target.GetProperties()) // BindingFlags.Instance | BindingFlags.Public
                 {
-                    var srcProperty = srcType.GetProperty(destProperty.Name);
+                    var srcProperty = source.GetProperty(destProperty.Name);
                     if (srcProperty != null)
                     {
                         mapMethodIlWriter.Emit(OpCodes.Dup);
@@ -88,113 +83,92 @@ namespace LuizStudios.FastMapper
                 mapMethodIlWriter.Emit(OpCodes.Ret);
             });
 
-            var newType = ilProvider.GetCreatedType();
+            /*var asmGen = new AssemblyGenerator();
+            asmGen.GenerateAssembly(newType.Assembly, @"C:\Users\luizf\Desktop\assembly2.dll");*/
 
-            var asmGen = new AssemblyGenerator();
-            asmGen.GenerateAssembly(newType.Assembly, @"C:\Users\luizf\Desktop\assembly2.dll");
+            var instancesIndex = 0;
 
-
-
-            var instanceIndex = 0;
-
-            var instanceLength = _instances.Length;
-            for (instanceIndex = 0; instanceIndex < instanceLength; instanceIndex++)
+            var instancesLength = _instances.Length;
+            for (instancesIndex = 0; instancesIndex < instancesLength; instancesIndex++)
             {
-                ref var _conversionMethod = ref _instances[instanceIndex];
-                if (_conversionMethod == null)
+                ref var instance = ref _instances[instancesIndex];
+                if (instance == null)
                 {
-                    _conversionMethod = Activator.CreateInstance(newType);
+                    instance = Activator.CreateInstance(ilProvider.CreateType());
 
                     break;
                 }
 
                 // Last element of the array
-                if ((instanceIndex + 1) == instanceLength)
+                if ((instancesIndex + 1) == instancesIndex)
                 {
-                    //FastMapperExtensions.Array.IncreaseCapacity(ref _conversionMethods, conversionMethodsLength * 2);
+                    //Array.Resize(ref _instances, );
 
                     // Restart for = -1 -> 0
-                    instanceIndex = -1;
+                    instancesIndex = -1;
                 }
             }
 
             var instanceIndexesLength = _instancesIndexes.Length;
-            for (var i = 0; i < instanceIndexesLength; i++)
+            for (var instancesIndexesIndex = 0; instancesIndexesIndex < instanceIndexesLength; instancesIndexesIndex++)
             {
-                ref var toAndMethod = ref _instancesIndexes[i];
-                if (toAndMethod == null)
+                ref var instanceIndex = ref _instancesIndexes[instancesIndexesIndex];
+                if (instanceIndex == null)
                 {
-                    toAndMethod = $"{destTypeName}_{instanceIndex}";
+                    instanceIndex = $"{targetTypeName}{instancesIndex}";
 
                     break;
                 }
 
                 // Last element of the array
-                if ((i + 1) == instanceIndexesLength)
+                if ((instancesIndexesIndex + 1) == instanceIndexesLength)
                 {
-                    //FastMapperExtensions.Array.IncreaseCapacity(ref _conversionMethodIndexes, conversionMethodIndexesLength * 2);
+                    //Array.Resize(ref _instances, );
 
                     // Restart for = -1 -> 0
-                    i = -1;
+                    instancesIndexesIndex = -1;
                 }
             }
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <typeparam name="TDestination"></typeparam>
-        /// <param name="src"></param>
-        /// <returns></returns>
-        /// <exception cref="InvalidOperationException"></exception>
 #if RELEASE
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static TDestination MapTo<TDestination>(this object src) where TDestination : class
+        public static TTarget MapTo<TTarget>(this object src) where TTarget : class
         {
+            var targetTypeName = typeof(TTarget).Name;
 
-            /*var destTypeName = typeof(TDestination).Name;
+            RuntimeBaseClass<TTarget> runtimeBaseClass;
 
-            if (_mappers.TryGetValue(destTypeName, out object type))
+            if (string.Equals(targetTypeName, _instancesIndexesLastExecuted, StringComparison.Ordinal))
             {
-                var mapper = (TestMapper)type;
-                return (TDestination)mapper.MakeMap(src);
-            }
-*/
-            var destTypeName = typeof(TDestination).Name;
+                runtimeBaseClass = (RuntimeBaseClass<TTarget>)_instances[_instancesIndexLastExecuted];
 
-            if (string.CompareOrdinal(destTypeName, _objectInstancesLastExecuted) == 0)
-            {
-                var mapper = (TestMapper)_instances[_objectInstancesIndexLastExecuted];
-
-                return (TDestination)mapper.MakeMap(src);
+                return runtimeBaseClass.MakeMap(src);
             }
 
-            foreach (var item in _instancesIndexes)
+            foreach (var instancesIndex in _instancesIndexes)
             {
-
-                if (item.Contains(destTypeName))
+                if (instancesIndex.Contains(targetTypeName))
                 {
-
-
-                    foreach (var typeNameAndIndexMethod in item)
+                    foreach (var instancesIndexChar in instancesIndex)
                     {
-                        if (char.IsDigit(typeNameAndIndexMethod))
+                        if (char.IsDigit(instancesIndexChar))
                         {
-                            _objectInstancesIndexLastExecuted = typeNameAndIndexMethod - '0';
-                            _objectInstancesLastExecuted = destTypeName;
+                            _instancesIndexLastExecuted = instancesIndexChar - '0'; // Convert to int without memory allocation
+                            _instancesIndexesLastExecuted = targetTypeName;
 
-                            var mapper = (TestMapper)_instances[_objectInstancesIndexLastExecuted];
+                            runtimeBaseClass = (RuntimeBaseClass<TTarget>)_instances[_instancesIndexLastExecuted];
 
-                            return (TDestination)mapper.MakeMap(src);
+                            return runtimeBaseClass.MakeMap(src);
                         }
-
-
                     }
                 }
             }
 
-            throw new InvalidOperationException();// $"The mapping between object \"{srcTypeName}\" and \"{destTypeName}\" has not been defined. Use the \"FastMapper.Bind<{srcTypeName}, {destTypeName}>();\" method before using this method.");
+            var sourceTypeName = src.GetType().Name;
+
+            throw new InvalidOperationException($"The mapping between object \"{sourceTypeName}\" and \"{targetTypeName}\" has not been defined. Use the \"FastMapper.Bind<{sourceTypeName}, {targetTypeName}>();\" method before using this method.");
         }
     }
 }
