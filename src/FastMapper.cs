@@ -14,7 +14,7 @@ namespace LuizStudios.FastMapper
     /// </summary>
     public static class FastMapper
     {
-        private const string FastMapperLibraryName = nameof(FastMapper);
+        private const string FastMapperInRuntime = nameof(FastMapperInRuntime);
 
         /*private readonly static string _fastMapperRuntimeAssemblyName;
         private readonly static string _fastMapperRuntimeClassName;*/
@@ -27,8 +27,8 @@ namespace LuizStudios.FastMapper
 
         static FastMapper()
         {
-            /*_instances = _instances ?? new object[];
-            _instancesIndexes = _instancesIndexes ?? new string[];*/
+            _instances = _instances ?? new object[4];
+            _instancesIndexes = _instancesIndexes ?? new string[4];
 
             /*_fastMapperRuntimeAssemblyName = _fastMapperRuntimeAssemblyName ?? $"{FastMapperLibraryName}_Assembly";
             _fastMapperRuntimeClassName = _fastMapperRuntimeClassName ?? $"{FastMapperLibraryName}_Class";*/
@@ -61,9 +61,9 @@ namespace LuizStudios.FastMapper
 
             var runtimeTypeBaseClass = typeof(RuntimeBaseClass<>);
 
-            var ilProvider = new ILProvider($"{FastMapperLibraryName}_Assembly", $"{FastMapperLibraryName}_Module");
-            ilProvider.CreateClass($"{FastMapperLibraryName}_Class", runtimeTypeBaseClass.MakeGenericType(target));
-            ilProvider.CreateMethod(runtimeTypeBaseClass.GetMethods().Single().Name, target, new[] { typeof(object) }, mapMethodIlWriter =>
+            var ilProvider = new ILProvider($"{FastMapperInRuntime}_Assembly", $"{FastMapperInRuntime}_Module");
+            ilProvider.CreateClass($"{FastMapperInRuntime}_Class", runtimeTypeBaseClass.MakeGenericType(target));
+            ilProvider.CreateMethod(runtimeTypeBaseClass.GetTypeInfo().DeclaredMethods.Single().Name, target, new[] { typeof(object) }, mapMethodIlWriter =>
             {
                 mapMethodIlWriter.Emit(OpCodes.Newobj, target.GetConstructor(Type.EmptyTypes));
 
@@ -140,7 +140,8 @@ namespace LuizStudios.FastMapper
 
             RuntimeBaseClass<TTarget> runtimeBaseClass;
 
-            if (string.Equals(targetTypeName, _instancesIndexesLastExecuted, StringComparison.Ordinal))
+            // More faster than string.Equals
+            if (string.CompareOrdinal(targetTypeName, _instancesIndexesLastExecuted) == 0)
             {
                 runtimeBaseClass = (RuntimeBaseClass<TTarget>)_instances[_instancesIndexLastExecuted];
 
@@ -151,18 +152,13 @@ namespace LuizStudios.FastMapper
             {
                 if (instancesIndex.Contains(targetTypeName))
                 {
-                    foreach (var instancesIndexChar in instancesIndex)
-                    {
-                        if (char.IsDigit(instancesIndexChar))
-                        {
-                            _instancesIndexLastExecuted = instancesIndexChar - '0'; // Convert to int without memory allocation
-                            _instancesIndexesLastExecuted = targetTypeName;
+                    // We take the last character because index is always the last character
+                    _instancesIndexLastExecuted = instancesIndex[instancesIndex.Length - 1] - '0'; // Convert char to int without memory allocation
+                    _instancesIndexesLastExecuted = targetTypeName;
 
-                            runtimeBaseClass = (RuntimeBaseClass<TTarget>)_instances[_instancesIndexLastExecuted];
+                    runtimeBaseClass = (RuntimeBaseClass<TTarget>)_instances[_instancesIndexLastExecuted];
 
-                            return runtimeBaseClass.MakeMap(src);
-                        }
-                    }
+                    return runtimeBaseClass.MakeMap(src);
                 }
             }
 

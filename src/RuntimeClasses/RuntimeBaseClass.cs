@@ -1,4 +1,7 @@
-﻿
+﻿using System.Runtime.CompilerServices;
+
+[assembly: InternalsVisibleTo("FastMapperInRuntime_Assembly")]
+
 namespace LuizStudios.RuntimeClasses
 {
     /// <summary>

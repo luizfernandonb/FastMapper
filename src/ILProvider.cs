@@ -25,12 +25,12 @@ namespace LuizStudios.FastMapper
         public void CreateClass(string name, Type parent = null)
         {
             _typeBuilder = _moduleBuilder.DefineType(name,
-                                                     TypeAttributes.Public |
+                                                     TypeAttributes.NotPublic |
                                                      TypeAttributes.Class |
                                                      TypeAttributes.AnsiClass |
-                                                     //TypeAttributes.BeforeFieldInit |
-                                                     TypeAttributes.Sealed,/* |
-                                                     TypeAttributes.Abstract,*/
+                                                     TypeAttributes.BeforeFieldInit |
+                                                     TypeAttributes.Sealed |
+                                                     TypeAttributes.AutoLayout,
                                                      parent);
         }
 
@@ -38,7 +38,7 @@ namespace LuizStudios.FastMapper
         public void CreateMethod(string name, Type @return, Type[] parameters, Action<ILGenerator> ilCode)
         {
             var mapMethod = _typeBuilder.DefineMethod(name,
-                                                      MethodAttributes.Family | MethodAttributes.Virtual | MethodAttributes.Public,
+                                                      MethodAttributes.Virtual | MethodAttributes.Assembly | MethodAttributes.Final | MethodAttributes.HideBySig | MethodAttributes.ReuseSlot,
                                                       @return,
                                                       parameters);
 
