@@ -1,4 +1,6 @@
-﻿namespace LuizStudios.Mapper.TestsConsole.Classes;
+﻿using LuizStudios.Attributes;
+
+namespace LuizStudios.Mapper.TestsConsole.Classes;
 
 public class Car
 {
@@ -8,5 +10,6 @@ public class Car
 
     public int Doors { get; set; } = 4;
 
+    [FastMapperIgnore]
     public string Engine { get; set; } = "V8";
 }

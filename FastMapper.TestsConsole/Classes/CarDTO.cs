@@ -1,4 +1,6 @@
-﻿namespace LuizStudios.Mapper.TestsConsole.Classes;
+﻿using LuizStudios.src.Attributes;
+
+namespace LuizStudios.Mapper.TestsConsole.Classes;
 
 public class CarDTO
 {
@@ -6,5 +8,6 @@ public class CarDTO
 
     public string? Model { get; set; }
 
+    [FastMapperForThis("V12")]
     public string? Engine { get; set; }
 }

@@ -1,7 +1,9 @@
-﻿using AutoMapper;
+﻿using System.Diagnostics;
+using AutoMapper;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Running;
+using Lokad.ILPack;
 using LuizStudios.Mapper.TestsConsole.Classes;
 using Mapster;
 using Nelibur.ObjectMapper;
@@ -40,7 +42,10 @@ public class Benchmarks
         //_carDTO = new CarDTO();
         //FastMapper.Bind<CarDTO, Car>();
 
-        FastMapper.Bind<Car, CarDTO>();
+        FastMapper.Bind<Car, CarDTO>((config) =>
+        {
+            config.InstancesArraySize = 16;
+        });
 
 #if RELEASE
         TinyMapper.Bind<Car, CarDTO>();
@@ -56,7 +61,18 @@ public class Benchmarks
     [Benchmark]
     public CarDTO FastMapperr()
     {
-        return _car.MapTo<CarDTO>();
+        var carDto = _car.MapTo<CarDTO>();
+
+#if DEBUG
+        var asmGen = new AssemblyGenerator();
+        asmGen.GenerateAssembly(FastMapper.GetAssemblyOfCreatedType(), @"C:\Users\luizf\Desktop\assembly.dll");
+#endif
+
+        Debug.Assert(carDto.Model == "Ferrari");
+        Debug.Assert(carDto.Engine == "V8");
+        Debug.Assert(carDto.Year == DateTime.Now.Year);
+
+        return carDto;
     }
 
 #if RELEASE

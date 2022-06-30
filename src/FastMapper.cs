@@ -5,6 +5,9 @@ using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 using EnsureThat;
+using LuizStudios.Attributes;
+using LuizStudios.Configuration;
+using LuizStudios.IL;
 using LuizStudios.RuntimeClasses;
 
 namespace LuizStudios.FastMapper
@@ -16,22 +19,22 @@ namespace LuizStudios.FastMapper
     {
         private const string FastMapperInRuntime = nameof(FastMapperInRuntime);
 
-        /*private readonly static string _fastMapperRuntimeAssemblyName;
-        private readonly static string _fastMapperRuntimeClassName;*/
+        private const int ArraysDefaultSize = 4;
 
         private static object[] _instances;
         private static string[] _instancesIndexes;
 
-        private static string _instancesIndexesLastExecuted;
+        // Properties to be set and used in the MapTo(...) method
+        private static string _instancesTypeNameLastExecuted;
         private static int _instancesIndexLastExecuted;
+
+        private static readonly Type _typeOfObject = typeof(object);
+
+        private static readonly ILProvider _ilProvider;
 
         static FastMapper()
         {
-            _instances = _instances ?? new object[4];
-            _instancesIndexes = _instancesIndexes ?? new string[4];
-
-            /*_fastMapperRuntimeAssemblyName = _fastMapperRuntimeAssemblyName ?? $"{FastMapperLibraryName}_Assembly";
-            _fastMapperRuntimeClassName = _fastMapperRuntimeClassName ?? $"{FastMapperLibraryName}_Class";*/
+            _ilProvider = new ILProvider($"{FastMapperInRuntime}_Assembly", $"{FastMapperInRuntime}_Module");
 
             /*
              * The default value is -1 because if a bug or something unexpected happens and the value of this variable remains at 0,
@@ -42,13 +45,33 @@ namespace LuizStudios.FastMapper
 
         public static void Bind<TSource, TTarget>() where TSource : class where TTarget : class
         {
-            Bind(typeof(TSource), typeof(TTarget));
+            InternalBind(typeof(TSource), typeof(TTarget));
         }
 
-        public static void Bind(Type source, Type target)
+        public static void Bind<TSource, TTarget>(Action<FastMapperConfiguration> configuration) where TSource : class where TTarget : class
+        {
+
+
+            InternalBind(typeof(TSource), typeof(TTarget), null);
+        }
+
+        /*public static void Bind(Type source, Type target)
+        {
+            InternalBind(source, target, null);
+        }
+
+        public static void Bind(Type source, Type target, Action<FastMapperConfiguration> configuration)
+        {
+            InternalBind(source, target, configuration);
+        }*/
+
+        private static void InternalBind(Type source, Type target, FastMapperConfiguration config = null)
         {
             Ensure.That(source).IsNotNull();
             Ensure.That(target).IsNotNull();
+
+            _instances = _instances ?? new object[config == null ? ArraysDefaultSize : config.InstancesArraySize];
+            _instancesIndexes = _instancesIndexes ?? new string[config == null ? ArraysDefaultSize : config.InstancesArraySize];
 
             var sourceTypeName = source.Name;
             var targetTypeName = target.Name;
@@ -59,32 +82,39 @@ namespace LuizStudios.FastMapper
                                                     $"(Maybe you wanted to do it the other way around? In this case: \"FastMapper.Bind<{targetTypeName}, {sourceTypeName}>();\")");
             }
 
-            var runtimeTypeBaseClass = typeof(RuntimeBaseClass<>);
-
-            var ilProvider = new ILProvider($"{FastMapperInRuntime}_Assembly", $"{FastMapperInRuntime}_Module");
-            ilProvider.CreateClass($"{FastMapperInRuntime}_Class", runtimeTypeBaseClass.MakeGenericType(target));
-            ilProvider.CreateMethod(runtimeTypeBaseClass.GetTypeInfo().DeclaredMethods.Single().Name, target, new[] { typeof(object) }, mapMethodIlWriter =>
+            _ilProvider.CreateClass($"{FastMapperInRuntime}_Class", typeof(RuntimeBaseClass));
+            _ilProvider.CreateMethod("MakeMap", _typeOfObject, new[] { _typeOfObject }, makeMapMethodIlWriter =>
             {
-                mapMethodIlWriter.Emit(OpCodes.Newobj, target.GetConstructor(Type.EmptyTypes));
+                makeMapMethodIlWriter.Emit(OpCodes.Newobj, target.GetConstructor(Type.EmptyTypes));
 
-                foreach (var destProperty in target.GetProperties()) // BindingFlags.Instance | BindingFlags.Public
+                var propertiesFlags = BindingFlags.Instance | BindingFlags.Public;
+
+                if (config != null && config.IgnorePropertiesCase)
                 {
-                    var srcProperty = source.GetProperty(destProperty.Name);
+                    propertiesFlags |= BindingFlags.IgnoreCase;
+                }
+
+                foreach (var targetProperty in target.GetProperties(propertiesFlags))
+                {
+                    var srcProperty = source.GetProperty(targetProperty.Name);
                     if (srcProperty != null)
                     {
-                        mapMethodIlWriter.Emit(OpCodes.Dup);
-                        mapMethodIlWriter.Emit(OpCodes.Ldarg_0);
+                        var ignoreProperty = srcProperty.GetCustomAttribute<FastMapperIgnoreAttribute>();
+                        if (ignoreProperty != null)
+                        {
+                            // Set new value
+                        }
 
-                        mapMethodIlWriter.EmitCall(OpCodes.Call, srcProperty.GetGetMethod(), Type.EmptyTypes);
-                        mapMethodIlWriter.EmitCall(OpCodes.Call, destProperty.GetSetMethod(), Type.EmptyTypes);
+                        makeMapMethodIlWriter.Emit(OpCodes.Dup);
+                        makeMapMethodIlWriter.Emit(OpCodes.Ldarg_1);
+
+                        makeMapMethodIlWriter.EmitCall(OpCodes.Call, srcProperty.GetGetMethod(), Type.EmptyTypes);
+                        makeMapMethodIlWriter.EmitCall(OpCodes.Call, targetProperty.GetSetMethod(), Type.EmptyTypes);
                     }
                 }
 
-                mapMethodIlWriter.Emit(OpCodes.Ret);
+                makeMapMethodIlWriter.Emit(OpCodes.Ret);
             });
-
-            /*var asmGen = new AssemblyGenerator();
-            asmGen.GenerateAssembly(newType.Assembly, @"C:\Users\luizf\Desktop\assembly2.dll");*/
 
             var instancesIndex = 0;
 
@@ -94,7 +124,7 @@ namespace LuizStudios.FastMapper
                 ref var instance = ref _instances[instancesIndex];
                 if (instance == null)
                 {
-                    instance = Activator.CreateInstance(ilProvider.CreateType());
+                    instance = Activator.CreateInstance(_ilProvider.CreateType());
 
                     break;
                 }
@@ -134,18 +164,37 @@ namespace LuizStudios.FastMapper
 #if RELEASE
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
-        public static TTarget MapTo<TTarget>(this object src) where TTarget : class
+        public static TTarget MapTo<TTarget>(this object source) where TTarget : class
         {
-            var targetTypeName = typeof(TTarget).Name;
+            return (TTarget)MapTo(source, Activator.CreateInstance(typeof(TTarget)));
+        }
 
-            RuntimeBaseClass<TTarget> runtimeBaseClass;
+#if RELEASE
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        public static TTarget MapTo<TSource, TTarget>(TSource source) where TSource : class where TTarget : class
+        {
+            return (TTarget)MapTo(source, Activator.CreateInstance(typeof(TTarget)));
+        }
+
+#if RELEASE
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#endif
+        public static object MapTo(object source, object target)
+        {
+            Ensure.That(source).IsNotNull();
+            Ensure.That(target).IsNotNull();
+
+            var targetTypeName = target.GetType().Name;
+
+            RuntimeBaseClass runtimeBaseClass;
 
             // More faster than string.Equals
-            if (string.CompareOrdinal(targetTypeName, _instancesIndexesLastExecuted) == 0)
+            if (string.CompareOrdinal(targetTypeName, _instancesTypeNameLastExecuted) == 0)
             {
-                runtimeBaseClass = (RuntimeBaseClass<TTarget>)_instances[_instancesIndexLastExecuted];
+                runtimeBaseClass = (RuntimeBaseClass)_instances[_instancesIndexLastExecuted];
 
-                return runtimeBaseClass.MakeMap(src);
+                return runtimeBaseClass.MakeMap(source);
             }
 
             foreach (var instancesIndex in _instancesIndexes)
@@ -154,17 +203,25 @@ namespace LuizStudios.FastMapper
                 {
                     // We take the last character because index is always the last character
                     _instancesIndexLastExecuted = instancesIndex[instancesIndex.Length - 1] - '0'; // Convert char to int without memory allocation
-                    _instancesIndexesLastExecuted = targetTypeName;
+                    _instancesTypeNameLastExecuted = targetTypeName;
 
-                    runtimeBaseClass = (RuntimeBaseClass<TTarget>)_instances[_instancesIndexLastExecuted];
+                    runtimeBaseClass = (RuntimeBaseClass)_instances[_instancesIndexLastExecuted];
 
-                    return runtimeBaseClass.MakeMap(src);
+                    return runtimeBaseClass.MakeMap(source);
                 }
             }
 
-            var sourceTypeName = src.GetType().Name;
+            var sourceTypeName = source.GetType().Name;
 
-            throw new InvalidOperationException($"The mapping between object \"{sourceTypeName}\" and \"{targetTypeName}\" has not been defined. Use the \"FastMapper.Bind<{sourceTypeName}, {targetTypeName}>();\" method before using this method.");
+            throw new InvalidOperationException($"The mapping between object \"{sourceTypeName}\" and \"{targetTypeName}\" has not been defined." +
+                                                $"Use the \"FastMapper.Bind<{sourceTypeName}, {targetTypeName}>();\" method before using this method.");
         }
+
+#if DEBUG
+        public static Assembly GetAssemblyOfCreatedType()
+        {
+            return _ilProvider.GetAssemblyOfCreatedType();
+        }
+#endif
     }
 }

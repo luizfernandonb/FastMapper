@@ -2,7 +2,7 @@
 using System.Reflection;
 using System.Reflection.Emit;
 
-namespace LuizStudios.FastMapper
+namespace LuizStudios.IL
 {
     // Provides some methods from Reflection.Emit library.
     internal sealed class ILProvider
@@ -13,16 +13,16 @@ namespace LuizStudios.FastMapper
         private TypeBuilder _typeBuilder;
         private readonly ModuleBuilder _moduleBuilder;
 
-        private MethodInfo _methodInfo;
-
-        public ILProvider(string assemblyName, string moduleName)
+        internal ILProvider(string assemblyName, string moduleName)
         {
             _moduleBuilder = AssemblyBuilder.DefineDynamicAssembly(new AssemblyName(assemblyName), AssemblyBuilderAccess.RunAndCollect)
                                             .DefineDynamicModule(moduleName);
         }
 
-        // Creates a new class in ModuleBuilder.
-        public void CreateClass(string name, Type parent = null)
+        /// <summary>
+        /// Creates a new class in ModuleBuilder.
+        /// </summary>
+        internal void CreateClass(string name, Type parent = null)
         {
             _typeBuilder = _moduleBuilder.DefineType(name,
                                                      TypeAttributes.NotPublic |
@@ -34,8 +34,10 @@ namespace LuizStudios.FastMapper
                                                      parent);
         }
 
-        // Creates a method in TypeBuilder.
-        public void CreateMethod(string name, Type @return, Type[] parameters, Action<ILGenerator> ilCode)
+        /// <summary>
+        /// Creates a method in TypeBuilder. 
+        /// </summary>
+        internal void CreateMethod(string name, Type @return, Type[] parameters, Action<ILGenerator> ilCode)
         {
             var mapMethod = _typeBuilder.DefineMethod(name,
                                                       MethodAttributes.Virtual | MethodAttributes.Assembly | MethodAttributes.Final | MethodAttributes.HideBySig | MethodAttributes.ReuseSlot,
@@ -45,8 +47,11 @@ namespace LuizStudios.FastMapper
             ilCode(mapMethod.GetILGenerator());
         }
 
-        // Creates the assembly and return the type created.
-        public Type CreateType()
+        /// <summary>
+        /// Creates the type and returns it.
+        /// </summary>
+        /// <returns></returns>
+        internal Type CreateType()
         {
             if (_typeCreated == null)
             {
@@ -55,28 +60,15 @@ namespace LuizStudios.FastMapper
 
             return _typeCreated;
         }
-        /*
-                public MethodInfo GetCreatedMethod(string name)
-                {
-                    if (_methodInfo == null)
-                    {
-                        return _methodInfo = GetCreatedType().GetMethod(name);
-                    }
 
-                    return _methodInfo;
-                }*/
-
-        /*#if DEBUG
-            ilProvider.SaveAssembly();
-        #endif*/
-
-        /*#if DEBUG
-                // Save the generated assembly in dll.
-                public void SaveAssembly()
-                {
-                    var generator = new AssemblyGenerator();
-                    generator.GenerateAssembly(GetCreatedType().Assembly, $"{Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), $@"{FastMapperLibraryName}.GeneratedMapperAtRuntime.dll")}");
-                }
-        #endif*/
+#if DEBUG
+        /// <summary>
+        /// Returns the assembly of the created type.
+        /// </summary>
+        internal Assembly GetAssemblyOfCreatedType()
+        {
+            return (Assembly)((dynamic)CreateType()).Assembly;
+        }
+#endif
     }
 }
